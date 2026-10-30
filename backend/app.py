@@ -10,10 +10,26 @@ FRONTEND = os.path.join(ROOT, "frontend")
 
 sys.path.insert(0, os.path.join(ROOT, "ml"))
 from model import FloodModel
+from sensor_health import check_reading
+from snapshot import build_snapshot
+from llm_advisor import build_advisor_from_env
+
+VALID_SOURCES = ("LIVE", "SIMULATED")
+# Template advice always; AI wording on top if ANTHROPIC_API_KEY is set.
+ADVISOR = build_advisor_from_env()
 
 app = Flask(__name__, static_folder=FRONTEND, static_url_path="")
 
 MODEL = FloodModel(os.path.join(ROOT, "ml", "model_weights.json"))
+
+# Allow the dashboard to call the API even when index.html is opened as a
+# local file or from another address (e.g. next to the ESP32 dashboard).
+@app.after_request
+def allow_dashboard(resp):
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return resp
 
 def db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -38,6 +54,27 @@ def init_db():
             gate_status TEXT NOT NULL
         )
     """)
+
+    # Phase 1 columns. Added with ALTER so existing databases keep their rows.
+    new_columns = {
+        "ml_high_risk_probability": "REAL",
+        "source": "TEXT NOT NULL DEFAULT 'LIVE'",
+        "device_id": "TEXT NOT NULL DEFAULT 'AquaSentinel-01'",
+        "raw_water_level": "REAL",
+        "sensor_status": "TEXT NOT NULL DEFAULT 'OK'",
+        "fault_reason": "TEXT NOT NULL DEFAULT ''",
+    }
+    existing = {r["name"] for r in con.execute("PRAGMA table_info(readings)")}
+    for name, ddl in new_columns.items():
+        if name not in existing:
+            con.execute(f"ALTER TABLE readings ADD COLUMN {name} {ddl}")
+    con.execute(
+        "UPDATE readings SET raw_water_level = water_level "
+        "WHERE raw_water_level IS NULL"
+    )
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_readings_timestamp ON readings(timestamp)"
+    )
     con.commit()
     con.close()
 
@@ -124,6 +161,38 @@ def add_reading():
     except (TypeError, ValueError):
         return jsonify({"error": "All sensor fields must be numeric"}), 400
 
+    source = str(payload.get("source", "LIVE")).upper()
+    if source not in VALID_SOURCES:
+        return jsonify({"error": "source must be LIVE or SIMULATED"}), 400
+    device_id = str(payload.get("device_id", "AquaSentinel-01"))[:64]
+
+    now = datetime.now(timezone.utc)
+    timestamp = now.isoformat()
+
+    con = db()
+    previous_rows = con.execute(
+        "SELECT * FROM readings ORDER BY id DESC LIMIT 30"
+    ).fetchall()
+    seconds_since_previous = None
+    if previous_rows:
+        seconds_since_previous = (
+            now - datetime.fromisoformat(previous_rows[0]["timestamp"])
+        ).total_seconds()
+
+    # 1. Sensor health runs BEFORE the risk engine.
+    raw_water_level = water_level
+    sensor_status, fault_reason, last_good_level = check_reading(
+        {"water_level": water_level, "temperature": temperature,
+         "humidity": humidity},
+        previous_rows,
+        seconds_since_previous,
+    )
+
+    # 2. On a fault, hold the last trusted level instead of believing the
+    #    bad one. The alert status will still say SENSOR_FAULT.
+    if sensor_status == "FAULT" and last_good_level is not None:
+        water_level = last_good_level
+
     water_level = clamp(water_level)
     rise_rate = max(0, rise_rate)
     rain = clamp(rain, 0, 1)
@@ -140,18 +209,20 @@ def add_reading():
     # Final display decision: transparent risk engine remains authoritative.
     # ML is an additional predictive signal in Phase 1.
     gate_status = gate_for(risk_level)
-    timestamp = datetime.now(timezone.utc).isoformat()
 
-    con = db()
     con.execute("""
         INSERT INTO readings
         (timestamp, water_level, rise_rate, rain, temperature, humidity,
-         risk_score, risk_level, predicted_level, gate_status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         risk_score, risk_level, predicted_level, gate_status,
+         ml_high_risk_probability, source, device_id, raw_water_level,
+         sensor_status, fault_reason)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         timestamp, water_level, rise_rate, int(rain >= 0.5),
         temperature, humidity, risk_score, risk_level,
-        predicted_level, gate_status
+        predicted_level, gate_status,
+        ml_probability, source, device_id, raw_water_level,
+        sensor_status, fault_reason
     ))
     con.commit()
     con.close()
@@ -168,7 +239,12 @@ def add_reading():
         "predicted_level": predicted_level,
         "prediction_minutes": 5,
         "ml_high_risk_probability": ml_probability,
-        "gate_status": gate_status
+        "gate_status": gate_status,
+        "source": source,
+        "device_id": device_id,
+        "raw_water_level": raw_water_level,
+        "sensor_status": sensor_status,
+        "fault_reason": fault_reason
     })
 
 @app.get("/api/latest")
@@ -212,15 +288,51 @@ def predict():
         "rise_rate": row["rise_rate"],
         "prediction_minutes": 5,
         "predicted_level": row["predicted_level"],
-        "ml_high_risk_probability": MODEL.predict([
+        # Percent (0-100), same unit as /api/reading and /api/latest.
+        "ml_high_risk_probability": round(MODEL.predict([
             row["water_level"], row["rise_rate"], row["rain"],
             row["temperature"], row["humidity"]
-        ])
+        ]) * 100, 1)
     })
+
+@app.get("/api/snapshot")
+def snapshot():
+    """
+    Compact summary of the last N minutes (default 5) for the dashboard and,
+    in Phase 2, the explainer. Every value is computed by deterministic code.
+    """
+    minutes = request.args.get("minutes", 5, type=int)
+    minutes = max(1, min(minutes, 60))
+    con = db()
+    try:
+        return jsonify(build_snapshot(con, minutes))
+    finally:
+        con.close()
+
+@app.get("/api/advisory")
+def advisory():
+    """
+    Plain-language advice from the advisory agent, built from the last
+    5 minutes of logged readings. ?audience=public|pro trims the reply;
+    without it both are returned.
+    """
+    con = db()
+    try:
+        snap = build_snapshot(con, 5)
+    finally:
+        con.close()
+    adv = ADVISOR.get(snap)
+    audience = request.args.get("audience")
+    if audience in ("public", "pro"):
+        adv = {k: v for k, v in adv.items()
+               if k not in (("pro",) if audience == "public" else ("public",))}
+    return jsonify(adv)
 
 if __name__ == "__main__":
     init_db()
     print("AquaSentinel API running at http://127.0.0.1:5001")
+    print("Advisor wording:", "AI (" + ADVISOR.model + ")" if ADVISOR.enabled
+          else "template only (" + ADVISOR.reason_off + ")")
     app.run(host="0.0.0.0", port=5001, debug=True)
 else:
     init_db()

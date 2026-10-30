@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AquaSentinel Dashboard</title>
+<style>
+  :root{
+    --bg:#0a1120; --panel:#111a2d; --panel2:#17223a; --line:#23304b;
+    --text:#e7eef8; --muted:#8696b3;
+    --low:#22c55e; --mod:#eab308; --high:#f97316; --crit:#ef4444;
+    --water:#38bdf8; --accent:#60a5fa; --rain:#a78bfa;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,Roboto,sans-serif}
+  header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
+         padding:14px 20px;border-bottom:1px solid var(--line);background:#0c1426}
+  h1{font-size:20px;margin:0;font-weight:700;letter-spacing:.3px}
+  h1 span{color:var(--water)}
+  .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .conn{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  input,select{background:var(--panel2);border:1px solid var(--line);color:var(--text);
+         padding:8px 10px;border-radius:8px;font-size:14px}
+  input{width:200px}
+  input[type=checkbox]{width:auto;padding:0;margin:0 4px 0 0;vertical-align:middle}
+  button{background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:8px 12px;
+         border-radius:8px;cursor:pointer;font-size:14px}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#061021;font-weight:600}
+  .pill{padding:5px 11px;border-radius:999px;font-size:12px;font-weight:600;background:#25324d;color:var(--muted)}
+  .pill.ok{background:rgba(34,197,94,.15);color:var(--low)}
+  .pill.bad{background:rgba(239,68,68,.15);color:var(--crit)}
+  .pill.sim{background:rgba(234,179,8,.18);color:var(--mod)}
+  .hidden{display:none !important}
+  main{padding:18px;display:grid;gap:16px;grid-template-columns:repeat(12,1fr);max-width:1320px;margin:0 auto}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
+  .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.8px}
+
+  /* Alert banner (from the GitHub dashboard), uses the same risk colours */
+  .banner{grid-column:span 12;display:flex;gap:14px;align-items:center;padding:12px 16px;transition:background .4s,border-color .4s}
+  .banner .icon{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-weight:800;background:var(--panel2);flex:none}
+  .banner b{font-size:14px;letter-spacing:.6px}
+  .banner p{margin:3px 0 0;color:var(--muted);font-size:13px}
+  .bg-FAULT{background:rgba(234,179,8,.10);border-color:rgba(234,179,8,.6)}
+
+  .risk{grid-column:span 4;display:flex;flex-direction:column;justify-content:space-between;
+        transition:background .4s,border-color .4s}
+  .risk .level{font-size:44px;font-weight:800;margin:8px 0 2px}
+  .risk .score{font-size:16px;color:var(--muted)}
+  .bar{position:relative;height:12px;border-radius:6px;margin-top:16px;
+       background:linear-gradient(90deg,var(--low) 0 25%,var(--mod) 25% 50%,var(--high) 50% 75%,var(--crit) 75% 100%);opacity:.9}
+  .marker{position:absolute;top:-5px;width:4px;height:22px;background:#fff;border-radius:2px;
+          transform:translateX(-2px);transition:left .5s}
+  .ticks{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:6px}
+
+  .tankcard{grid-column:span 2;display:flex;flex-direction:column;align-items:center}
+  .tank{position:relative;width:80px;flex:1;min-height:170px;margin-top:10px;border:2px solid #3b4d72;
+        border-top:none;border-radius:0 0 12px 12px;overflow:hidden;background:#0b1424}
+  .fill{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,#5cc8f7,#1d6fb8);
+        transition:height .6s}
+  .floodline{position:absolute;left:0;right:0;border-top:2px dashed var(--crit);bottom:calc(100% - 2px)}
+  .tankpct{font-size:22px;font-weight:700;margin-top:8px}
+
+  .tiles{grid-column:span 6;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:0;background:none;border:none}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .tile .v{font-size:26px;font-weight:700;margin-top:6px}
+  .tile .u{font-size:13px;color:var(--muted);font-weight:500;margin-left:3px}
+  .tile .s{font-size:12px;color:var(--muted);margin-top:4px}
+
+  .chart{grid-column:span 6}
+  .chart canvas{width:100%;height:220px;display:block;margin-top:10px}
+  .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+
+  /* Server analysis (ML, prediction, recommendation from the GitHub dashboard) */
+  .analysis{grid-column:span 12}
+  .agrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px}
+  .agrid .tile{background:var(--panel2)}
+  .agrid .wide{grid-column:span 2}
+  .agrid .v.small{font-size:16px;line-height:1.35}
+
+  .logcard{grid-column:span 12}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  #log{list-style:none;margin:12px 0 0;padding:0;max-height:200px;overflow:auto;font-size:13px}
+  #log li{padding:6px 0;border-bottom:1px solid var(--line);display:flex;gap:10px}
+  #log .t{color:var(--muted);min-width:72px;font-variant-numeric:tabular-nums}
+  .hint{color:var(--muted);font-size:12px}
+
+  .c-LOW{color:var(--low)} .c-MODERATE{color:var(--mod)} .c-HIGH{color:var(--high)} .c-CRITICAL{color:var(--crit)}
+  .c-FAULT{color:var(--mod)}
+  .bg-LOW{background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.45)}
+  .bg-MODERATE{background:rgba(234,179,8,.10);border-color:rgba(234,179,8,.45)}
+  .bg-HIGH{background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.5)}
+  .bg-CRITICAL{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.6);animation:pulse 1s infinite}
+  @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(239,68,68,.15)}}
+
+  @media (max-width:1000px){
+    .risk{grid-column:span 8}.tankcard{grid-column:span 4}.tiles{grid-column:span 12}.chart{grid-column:span 12}
+    .agrid{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width:600px){
+    main{padding:12px}.risk,.tankcard{grid-column:span 12}.tiles{grid-template-columns:repeat(2,1fr)}
+    input{width:150px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Aqua<span>Sentinel</span> Dashboard</h1>
+    <div class="sub" id="subTitle">ESP32 flood-risk node · live every second</div>
+  </div>
+  <div class="conn">
+    <select id="mode" title="Where readings come from">
+      <option value="esp32">ESP32 direct</option>
+      <option value="server">Server (Flask)</option>
+    </select>
+    <input id="host" placeholder="ESP32 IP e.g. 192.168.1.42" spellcheck="false">
+    <input id="server" placeholder="Server e.g. http://127.0.0.1:5001" spellcheck="false">
+    <label class="hint" id="fwdWrap" title="Send every ESP32 reading to the Flask server for storage, ML and sensor checks"><input type="checkbox" id="fwd">Send to server</label>
+    <button class="primary" id="connectBtn">Connect</button>
+    <span class="pill hidden" id="sourcePill">LIVE</span>
+    <span class="pill" id="status">Not connected</span>
+  </div>
+</header>
+
+<main>
+  <section class="card banner" id="banner">
+    <div class="icon" id="bannerIcon">!</div>
+    <div>
+      <b id="alertTitle">SYSTEM INITIALIZING</b>
+      <p id="alertText">Waiting for the latest reading.</p>
+    </div>
+  </section>
+
+  <section class="card risk" id="riskCard">
+    <div>
+      <div class="label" id="riskLabel">Risk level</div>
+      <div class="level" id="riskLevel">--</div>
+      <div class="score">Score <b id="riskScore">--</b> / 100</div>
+    </div>
+    <div>
+      <div class="bar"><div class="marker" id="marker" style="left:0%"></div></div>
+      <div class="ticks"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
+    </div>
+  </section>
+
+  <section class="card tankcard">
+    <div class="label">Tank</div>
+    <div class="tank"><div class="fill" id="fill"></div><div class="floodline" title="Flood level (100%)"></div></div>
+    <div class="tankpct" id="tankPct">--%</div>
+  </section>
+
+  <section class="tiles">
+    <div class="tile"><div class="label">Water level</div><div class="v"><span id="levelCm">--</span><span class="u" id="levelUnit">cm</span></div><div class="s" id="levelPct">-- % of flood level</div></div>
+    <div class="tile"><div class="label">Rise rate</div><div class="v"><span id="rise">--</span><span class="u" id="riseUnit">cm/min</span></div><div class="s" id="riseTxt">--</div></div>
+    <div class="tile"><div class="label">Rainfall</div><div class="v"><span id="rain">--</span><span class="u">%</span></div><div class="s" id="rainClass">--</div></div>
+    <div class="tile"><div class="label">Drain gate</div><div class="v" id="gate">--</div><div class="s">Opens at HIGH, closes at LOW</div></div>
+    <div class="tile"><div class="label">Sensor distance</div><div class="v"><span id="dist">--</span><span class="u">cm</span></div><div class="s" id="distTxt">--</div></div>
+    <div class="tile"><div class="label">Wi-Fi signal</div><div class="v"><span id="rssi">--</span><span class="u">dBm</span></div><div class="s" id="uptime">Node uptime --</div></div>
+    <div class="tile"><div class="label">Temperature</div><div class="v"><span id="temp">--</span><span class="u">°C</span></div><div class="s" id="tempTxt">Ambient condition</div></div>
+    <div class="tile"><div class="label">Humidity</div><div class="v"><span id="hum">--</span><span class="u">%</span></div><div class="s" id="humTxt">Ambient condition</div></div>
+    <div class="tile"><div class="label">Forecast (5 min)</div><div class="v"><span id="pred">--</span><span class="u">%</span></div><div class="s" id="predTxt">Needs server</div></div>
+  </section>
+
+  <section class="card chart">
+    <div class="label">Water level &amp; risk score (recent)</div>
+    <canvas id="c1"></canvas>
+    <div class="legend"><span><i style="background:var(--water)"></i>Water level %</span><span><i style="background:#fff"></i>Risk score</span><span>Background bands = risk zones</span></div>
+  </section>
+
+  <section class="card chart">
+    <div class="label">Rise rate &amp; rainfall (recent)</div>
+    <canvas id="c2"></canvas>
+    <div class="legend"><span><i style="background:var(--high)"></i>Rise rate (<span id="riseLegend">cm/min</span>, left axis)</span><span><i style="background:var(--rain)"></i>Rain % ÷ 10</span></div>
+  </section>
+
+  <section class="card analysis">
+    <div class="label">Server analysis · last 5 minutes</div>
+    <div class="agrid">
+      <div class="tile"><div class="label">ML high-risk probability</div><div class="v"><span id="mlProb">--</span><span class="u">%</span></div><div class="s">Custom neural network</div></div>
+      <div class="tile"><div class="label">Server risk</div><div class="v" id="srvRisk">--</div><div class="s" id="srvScore">Rule engine score --</div></div>
+      <div class="tile"><div class="label">Rules vs ML</div><div class="v small" id="agree">--</div><div class="s" id="agreeTxt">--</div></div>
+      <div class="tile"><div class="label">5-minute trend</div><div class="v small" id="trend">--</div><div class="s" id="trendTxt">--</div></div>
+      <div class="tile"><div class="label">Sensor health</div><div class="v small" id="health">--</div><div class="s" id="healthTxt">--</div></div>
+      <div class="tile"><div class="label">Last update</div><div class="v small" id="lastUpdate">--</div><div class="s" id="lastAge">--</div></div>
+      <div class="tile wide"><div class="label">Recommended response</div><div class="v small" id="recommendation">Waiting for data</div><div class="s">Prototype only. Follow local authorities.</div></div>
+    </div>
+  </section>
+
+  <section class="card logcard">
+    <div class="label">Events &amp; test log</div>
+    <div class="tools">
+      <span class="hint">Scenario:</span>
+      <select id="scenario">
+        <option value="">(none)</option>
+        <option>Slow rise</option>
+        <option>Rapid rise</option>
+        <option>Heavy rain</option>
+        <option>Recovery</option>
+      </select>
+      <button id="pauseBtn">Pause</button>
+      <button id="clearBtn">Clear</button>
+      <button id="csvBtn">Download CSV</button>
+      <span class="hint" id="rowCount">0 rows recorded</span>
+    </div>
+    <ul id="log"></ul>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const MAX_POINTS = 180;           // ~3 minutes at 1 reading/s
+const POLL_MS = 1000;
+
+// Recommended responses (from the GitHub dashboard) per status.
+const RECOMMEND = {
+  LOW: 'Continue normal monitoring.',
+  MODERATE: 'Monitor water level and rainfall closely.',
+  HIGH: 'Prepare for possible flood response.',
+  CRITICAL: 'Immediate protective action recommended.',
+  SENSOR_FAULT: 'Check the sensor. Do not rely on the level reading until it recovers.',
+  STALE: 'Check the node power and Wi-Fi. Readings shown may be out of date.',
+  NO_DATA: 'Waiting for data'
+};
+const ALERT = {
+  LOW: ['SYSTEM STABLE', 'Water and environmental conditions are currently within safe limits.'],
+  MODERATE: ['MODERATE RISK', 'Conditions require continued monitoring.'],
+  HIGH: ['HIGH FLOOD RISK', 'Rapidly changing conditions detected. Prepare for possible action.'],
+  CRITICAL: ['CRITICAL FLOOD RISK', 'Immediate protective action is recommended.']
+};
+const AGREE = {
+  CONFIRMED: ['Confirmed', 'Rules and ML both see high risk'],
+  EARLY_WARNING: ['Early warning', 'ML sees risk before the rules do'],
+  RULES_ONLY: ['Rules only', 'Rules fired, ML does not agree'],
+  CLEAR: ['Clear', 'Neither rules nor ML see high risk'],
+  UNKNOWN: ['--', 'No ML result yet']
+};
+
+// When the page is served by Flask, the server is the same origin.
+const SERVED_BY_FLASK = location.protocol.startsWith('http');
+
+let mode = load('aq_mode') || (SERVED_BY_FLASK ? 'server' : 'esp32');
+let host = load('aq_host') || '';
+let server = load('aq_server') || (SERVED_BY_FLASK ? location.origin : 'http://127.0.0.1:5001');
+let forward = load('aq_fwd') === '1';
+
+let hist = [];                    // recent points for charts
+let rows = [];                    // every reading, for CSV
+let inFlight = false, paused = false, timer = null;
+let lastRisk = null, lastGate = null, lastOk = 0, lastEspMs = -1, lastServerId = -1;
+let lastAlert = null, lastAgree = null;
+let floodHeightCm = null;
+let gen = 0;                      // bumps on every (re)connect; drops late replies         // learned from ESP32 (level_cm / level_pct)
+
+function load(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function save(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+function css(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function cleanHost(h){ return h.trim().replace(/^https?:\/\//,'').replace(/\/.*$/,''); }
+function cleanServer(s){ s = s.trim().replace(/\/+$/,''); return s && !/^https?:\/\//.test(s) ? 'http://' + s : s; }
+function timeStr(d){ return d.toLocaleTimeString([], {hour12:false}); }
+function num(v){ return v === null || v === undefined || v === '' ? null : Number(v); }
+function fmt(v, dec){ return Number.isFinite(v) ? v.toFixed(dec) : '--'; }
+
+async function getJSON(url, opts = {}){
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), 2500);
+  try {
+    const r = await fetch(url, { cache: 'no-store', signal: ctrl.signal, ...opts });
+    if (r.status === 404) return null;              // e.g. "No readings yet"
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(to); }
+}
+
+// ---------- controls ----------
+$('mode').value = mode;
+$('host').value = host;
+$('server').value = server;
+$('fwd').checked = forward;
+applyModeUi();
+
+$('mode').onchange = () => { mode = $('mode').value; save('aq_mode', mode); applyModeUi(); resetView(); start(); };
+$('fwd').onchange = () => { forward = $('fwd').checked; save('aq_fwd', forward ? '1' : '0'); applyModeUi();
+                            addEvent(forward ? 'Sending ESP32 readings to server' : 'Stopped sending to server', ''); };
+$('connectBtn').onclick = () => {
+  host = cleanHost($('host').value);
+  server = cleanServer($('server').value) || server;
+  save('aq_host', host); save('aq_server', server);
+  if (mode === 'esp32' && !host) { setStatus('bad','Enter the ESP32 IP'); return; }
+  start();
+};
+$('host').addEventListener('keydown', e => { if (e.key === 'Enter') $('connectBtn').click(); });
+$('server').addEventListener('keydown', e => { if (e.key === 'Enter') $('connectBtn').click(); });
+$('pauseBtn').onclick = () => { paused = !paused; $('pauseBtn').textContent = paused ? 'Resume' : 'Pause';
+                                setStatus(paused ? '' : 'ok', paused ? 'Paused' : 'Resuming…'); };
+$('clearBtn').onclick = () => { hist = []; rows = []; $('log').innerHTML = ''; updateCount(); drawAll(); };
+$('csvBtn').onclick = downloadCsv;
+$('scenario').onchange = () => { const s = $('scenario').value; addEvent(s ? `Scenario started: ${s}` : 'Scenario cleared', ''); };
+
+function useServer(){ return mode === 'server' || forward; }
+
+function applyModeUi(){
+  const esp = mode === 'esp32';
+  $('host').classList.toggle('hidden', !esp);
+  $('fwdWrap').classList.toggle('hidden', !esp);
+  // The server address is only needed when the page is not served by Flask.
+  $('server').classList.toggle('hidden', SERVED_BY_FLASK || !useServer());
+  $('subTitle').textContent = esp
+    ? 'ESP32 flood-risk node · live every second' + (forward ? ' · sending to server' : '')
+    : 'Flask server · stored readings, ML and sensor checks';
+  const unit = esp ? 'cm/min' : '%/min';
+  $('riseUnit').textContent = unit; $('riseLegend').textContent = unit;
+  $('levelUnit').textContent = esp ? 'cm' : '%';
+  if (!useServer()) clearAnalysis();
+}
+
+function resetView(){
+  hist = []; lastRisk = null; lastGate = null; lastEspMs = -1; lastServerId = -1;
+  lastAlert = null; lastAgree = null; lastOk = 0;
+  drawAll();
+}
+
+function start(){
+  if (timer) clearInterval(timer);
+  gen++;
+  setStatus('', 'Connecting…');
+  if (mode === 'server') loadServerHistory();
+  poll();
+  timer = setInterval(poll, POLL_MS);
+}
+
+function setStatus(kind, text){ const s = $('status'); s.className = 'pill' + (kind ? ' ' + kind : ''); s.textContent = text; }
+
+async function poll(){
+  if (inFlight || paused) return;
+  if (mode === 'esp32' && !host) return;
+  inFlight = true;
+  const g = gen;
+  try {
+    if (mode === 'esp32') await pollEsp32(g);
+    else await pollServer(g);
+    if (useServer() && g === gen) await pollSnapshot(g);
+  } finally {
+    inFlight = false;
+  }
+}
+
+// ---------- source 1: ESP32 direct (same behaviour as before) ----------
+async function pollEsp32(g){
+  try {
+    const d = await getJSON(`http://${host}/data`);
+    if (!d) throw new Error('No data');
+    if (g !== gen) return;
+    lastOk = Date.now();
+    if (d.ok) onEspData(d);
+    setStatus('ok', 'Live · ' + host);
+  } catch (e) {
+    const secs = lastOk ? Math.round((Date.now() - lastOk) / 1000) : null;
+    setStatus('bad', secs ? `No data for ${secs}s` : 'Cannot reach ESP32');
+  }
+}
+
+function onEspData(d){
+  if (d.ms === lastEspMs) return;          // same reading as last poll, skip duplicate
+  if (lastEspMs > 0 && d.ms < lastEspMs) addEvent('ESP32 restarted', '');
+  lastEspMs = d.ms;
+  if (d.level_pct > 1 && d.level_cm > 0) floodHeightCm = d.level_cm / (d.level_pct / 100);
+
+  onPoint({
+    t: new Date(), src: 'esp32', scenario: $('scenario').value,
+    level_pct: d.level_pct, level_cm: d.level_cm, rise: d.rise, rain_pct: d.rain_pct,
+    rain_class: d.rain_class, score: d.score, risk: d.risk, gate: d.gate,
+    distance: d.distance, rssi: d.rssi, ms: d.ms,
+    temperature: num(d.temperature), humidity: num(d.humidity)
+  });
+  if (forward) sendToServer(d);
+}
+
+// Temporary bridge: the page forwards ESP32 readings to Flask.
+// Works only while this page is open. Later the ESP32 will POST itself.
+async function sendToServer(d){
+  // Backend expects rise in % of flood height per minute; ESP32 gives cm/min.
+  const risePct = floodHeightCm ? d.rise / floodHeightCm * 100 : 0;
+  const payload = {
+    water_level: d.level_pct,
+    rise_rate: risePct,
+    rain: d.rain_pct / 100,
+    // This node has no temperature/humidity sensor. Neutral values add 0
+    // points in the risk engine. The backend phase will make these optional.
+    temperature: num(d.temperature) ?? 25,
+    humidity: num(d.humidity) ?? 60,
+    source: 'LIVE',
+    device_id: 'esp32-' + host
+  };
+  try {
+    await getJSON(server + '/api/reading', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    $('healthTxt').textContent = 'Could not reach server';
+  }
+}
+
+// ---------- source 2: Flask server (GitHub dashboard data) ----------
+function serverRowToPoint(r){
+  return {
+    t: new Date(r.timestamp), src: 'server', scenario: $('scenario').value,
+    level_pct: r.water_level, level_cm: null, rise: r.rise_rate,
+    rain_pct: r.rain ? 100 : 0, rain_class: r.rain ? 'Rain detected' : 'No rain',
+    score: r.risk_score, risk: r.risk_level, gate: r.gate_status,
+    distance: null, rssi: null, ms: null,
+    temperature: num(r.temperature), humidity: num(r.humidity),
+    id: r.id
+  };
+}
+
+async function loadServerHistory(){
+  try {
+    const list = await getJSON(server + `/api/history?limit=${MAX_POINTS}`);
+    if (!list) return;
+    hist = list.map(serverRowToPoint);
+    if (hist.length) lastServerId = hist[hist.length - 1].id;
+    drawAll();
+  } catch (e) { /* poll() reports connection problems */ }
+}
+
+async function pollServer(g){
+  try {
+    const r = await getJSON(server + '/api/latest');
+    if (g !== gen) return;
+    lastOk = Date.now();
+    if (!r) { setStatus('', 'Server up · no readings yet'); return; }
+    setStatus('ok', 'Live · server');
+    if (r.id === lastServerId && lastRisk !== null) return;
+    lastServerId = r.id;
+    onPoint(serverRowToPoint(r));
+  } catch (e) {
+    const secs = lastOk ? Math.round((Date.now() - lastOk) / 1000) : null;
+    setStatus('bad', secs ? `No server for ${secs}s` : 'Cannot reach server');
+  }
+}
+
+// ---------- shared rendering ----------
+function onPoint(p){
+  if (!hist.length || hist[hist.length - 1].id === undefined || hist[hist.length - 1].id !== p.id) {
+    hist.push(p); if (hist.length > MAX_POINTS) hist.shift();
+  }
+  rows.push(p); updateCount();
+
+  // Risk card
+  const card = $('riskCard');
+  card.className = 'card risk bg-' + p.risk;
+  $('riskLabel').textContent = p.src === 'esp32' ? 'Risk level · ESP32 node' : 'Risk level · server';
+  $('riskLevel').textContent = p.risk;
+  $('riskLevel').className = 'level c-' + p.risk;
+  $('riskScore').textContent = Math.round(p.score);
+  $('marker').style.left = Math.max(0, Math.min(100, p.score)) + '%';
+
+  // Tank
+  const pct = Math.max(0, Math.min(100, p.level_pct));
+  $('fill').style.height = pct + '%';
+  $('fill').style.background = p.level_pct >= 90 ? 'linear-gradient(180deg,#f87171,#b91c1c)'
+                             : p.level_pct >= 75 ? 'linear-gradient(180deg,#fb923c,#c2410c)'
+                             : 'linear-gradient(180deg,#5cc8f7,#1d6fb8)';
+  $('tankPct').textContent = Math.round(p.level_pct) + '%';
+
+  // Tiles
+  $('levelCm').textContent = p.level_cm !== null ? p.level_cm.toFixed(1) : p.level_pct.toFixed(1);
+  $('levelPct').textContent = Math.round(p.level_pct) + ' % of flood level';
+  $('rise').textContent = p.rise.toFixed(1);
+  $('riseTxt').textContent = p.rise > 0.5 ? 'Rising' : p.rise < -0.5 ? 'Falling' : 'Stable';
+  $('rain').textContent = Math.round(p.rain_pct);
+  $('rainClass').textContent = p.rain_class;
+  $('gate').textContent = p.gate;
+  $('gate').style.color = p.gate === 'OPEN' ? css('--high') : css('--text');
+  if (p.distance === null) {
+    $('dist').textContent = '--'; $('distTxt').textContent = 'ESP32 direct only';
+  } else {
+    $('dist').textContent = p.distance < 0 ? '--' : p.distance.toFixed(1);
+    $('distTxt').textContent = p.distance < 0 ? 'No echo (holding last level)' : 'Sensor to water surface';
+  }
+  $('rssi').textContent = p.rssi === null ? '--' : p.rssi;
+  $('uptime').textContent = p.ms === null ? 'ESP32 direct only' : 'Node uptime ' + Math.floor(p.ms / 1000) + ' s';
+  $('temp').textContent = fmt(p.temperature, 1);
+  $('tempTxt').textContent = p.temperature === null ? 'Not measured on this node' : 'Ambient condition';
+  $('hum').textContent = fmt(p.humidity, 1);
+  $('humTxt').textContent = p.humidity === null ? 'Not measured on this node' : 'Ambient condition';
+
+  // Without a server, the banner follows the ESP32 risk.
+  if (!useServer()) setBanner(p.risk);
+
+  // Events
+  if (lastRisk !== null && p.risk !== lastRisk) addEvent(`Risk ${lastRisk} → ${p.risk} (score ${Math.round(p.score)}, level ${Math.round(p.level_pct)}%)`, p.risk);
+  if (lastRisk === null) addEvent(`Connected. Risk ${p.risk}`, p.risk);
+  if (lastGate !== null && p.gate !== lastGate) addEvent(`Gate ${p.gate}`, p.gate === 'OPEN' ? 'HIGH' : 'LOW');
+  lastRisk = p.risk; lastGate = p.gate;
+
+  drawAll();
+}
+
+// ---------- server snapshot: ML, forecast, sensor health, source ----------
+async function pollSnapshot(g){
+  let s;
+  try { s = await getJSON(server + '/api/snapshot?minutes=5'); }
+  catch (e) { return; }
+  if (s && g === gen) renderAnalysis(s);
+}
+
+function setBanner(status, snap){
+  let title, text, cls;
+  if (status === 'STALE') {
+    title = 'SENSOR OFFLINE'; cls = 'FAULT';
+    text = 'No reading received recently. Values shown are the last known reading and may be out of date.';
+  } else if (status === 'SENSOR_FAULT') {
+    title = 'SENSOR FAULT'; cls = 'FAULT';
+    text = 'The latest reading failed a health check (' + ((snap && snap.sensor_health.last_issue) || 'unknown') +
+           '). Holding the last trusted water level.';
+  } else if (ALERT[status]) {
+    [title, text] = ALERT[status]; cls = status;
+  } else {
+    title = 'SYSTEM INITIALIZING'; text = 'Waiting for the latest reading.'; cls = '';
+  }
+  $('banner').className = 'card banner' + (cls ? ' bg-' + cls : '');
+  $('bannerIcon').className = 'icon' + (cls ? ' c-' + cls : '');
+  $('alertTitle').textContent = title;
+  $('alertText').textContent = text;
+  $('recommendation').textContent = RECOMMEND[status] || RECOMMEND.NO_DATA;
+}
+
+function renderAnalysis(s){
+  const status = s.alert ? s.alert.status : 'NO_DATA';
+  setBanner(status, s);
+  // ESP32 and server use different risk formulas; say so when they differ.
+  if (mode === 'esp32' && lastRisk && ALERT[status] && lastRisk !== status) {
+    $('alertText').textContent += ` Server says ${status}, ESP32 node says ${lastRisk}.`;
+  }
+
+  // Data source: simulated data must always be visibly labelled.
+  const src = s.data_source;
+  $('sourcePill').className = 'pill' + (!src ? ' hidden' : src === 'LIVE' ? ' ok' : ' sim');
+  $('sourcePill').textContent = src === 'SIMULATED' ? 'SIMULATED DATA' : src === 'MIXED' ? 'MIXED LIVE + SIMULATED' : 'LIVE';
+
+  if (!s.current) return;   // NO_DATA
+  const f = s.forecast || {}, h = s.sensor_health || {}, tr = s.trend, dev = s.device || {};
+
+  $('pred').textContent = fmt(num(f.predicted_level_5min), 1);
+  $('predTxt').textContent = 'Projected from rise rate';
+  $('mlProb').textContent = fmt(num(f.ml_high_risk_probability), 1);
+  $('srvRisk').textContent = s.current.risk_level;
+  $('srvRisk').className = 'v c-' + s.current.risk_level;
+  $('srvScore').textContent = 'Rule engine score ' + fmt(num(s.current.risk_score), 1);
+
+  const [aLabel, aText] = AGREE[s.alert.agreement] || AGREE.UNKNOWN;
+  $('agree').textContent = aLabel; $('agreeTxt').textContent = aText;
+
+  if (tr && tr.per_minute !== null) {
+    $('trend').textContent = `${tr.direction} ${tr.change >= 0 ? '+' : ''}${tr.change}%`;
+    $('trendTxt').textContent = `${tr.start_level}% → ${tr.end_level}% · ${tr.per_minute}%/min`;
+  } else {
+    $('trend').textContent = '--'; $('trendTxt').textContent = 'Collecting readings…';
+  }
+
+  $('health').textContent = h.status || '--';
+  $('health').className = 'v small' + (h.status === 'FAULT' ? ' c-CRITICAL' : h.status === 'WARNING' ? ' c-MODERATE' : h.status === 'OK' ? ' c-LOW' : '');
+  $('healthTxt').textContent = h.last_issue || `${h.faults_in_window || 0} faults in 5 min`;
+
+  if (dev.last_reading_at) {
+    $('lastUpdate').textContent = timeStr(new Date(dev.last_reading_at));
+    $('lastAge').textContent = `${Math.round(dev.last_reading_age_s)} s ago · ${dev.readings_in_window} readings in 5 min`;
+  }
+
+  if (lastAlert !== null && status !== lastAlert) addEvent(`Server status ${lastAlert} → ${status}`, ALERT[status] ? status : 'FAULT');
+  if (lastAgree !== null && s.alert.agreement !== lastAgree) addEvent(`Rules vs ML: ${aLabel}`, '');
+  lastAlert = status; lastAgree = s.alert.agreement;
+}
+
+function clearAnalysis(){
+  for (const id of ['mlProb','srvRisk','agree','trend','health','lastUpdate','pred']) $(id).textContent = '--';
+  $('srvRisk').className = 'v'; $('health').className = 'v small';
+  $('srvScore').textContent = 'Turn on "Send to server"';
+  for (const id of ['agreeTxt','trendTxt','healthTxt','lastAge','predTxt']) $(id).textContent = 'Needs server';
+  $('recommendation').textContent = lastRisk ? RECOMMEND[lastRisk] : 'Waiting for data';
+  $('sourcePill').classList.add('hidden');
+}
+
+function addEvent(text, cls){
+  const li = document.createElement('li');
+  li.innerHTML = `<span class="t">${timeStr(new Date())}</span><span class="${cls ? 'c-' + cls : ''}"></span>`;
+  li.lastChild.textContent = text;
+  $('log').prepend(li);
+  while ($('log').children.length > 100) $('log').lastChild.remove();
+}
+
+function updateCount(){ $('rowCount').textContent = rows.length + ' rows recorded'; }
+
+function downloadCsv(){
+  if (!rows.length) { alert('No data recorded yet.'); return; }
+  const head = 'time,source,scenario,esp_ms,distance_cm,level_cm,level_pct,rise,rain_pct,rain_class,risk_score,risk_level,gate,temperature,humidity';
+  const lines = rows.map(r => [r.t.toISOString(), r.src, r.scenario, r.ms ?? '', r.distance ?? '', r.level_cm ?? '', r.level_pct,
+                                r.rise, r.rain_pct, r.rain_class, r.score, r.risk, r.gate, r.temperature ?? '', r.humidity ?? ''].join(','));
+  const blob = new Blob([head + '\n' + lines.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  a.href = URL.createObjectURL(blob);
+  a.download = `aquasentinel_${stamp}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ---------- charts (no external libraries, works offline) ----------
+function drawChart(cv, series, opts){
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w*dpr) || cv.height !== Math.round(h*dpr)) { cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); }
+  const c = cv.getContext('2d');
+  c.setTransform(dpr,0,0,dpr,0,0);
+  c.clearRect(0,0,w,h);
+  const pad = { l:38, r:10, t:8, b:20 };
+  const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+
+  let ymin = opts.min, ymax = opts.max;
+  if (opts.auto) {
+    const vals = series.flatMap(s => s.data).filter(Number.isFinite);
+    if (vals.length) { ymin = Math.min(ymin, ...vals); ymax = Math.max(ymax, ...vals); }
+  }
+  if (ymax === ymin) ymax = ymin + 1;
+  const Y = v => pad.t + ph - (Math.max(ymin, Math.min(ymax, v)) - ymin) / (ymax - ymin) * ph;
+  const X = i => pad.l + (i / (MAX_POINTS - 1)) * pw;
+
+  if (opts.bands) for (const b of opts.bands) { c.fillStyle = b.color; c.fillRect(pad.l, Y(b.to), pw, Y(b.from) - Y(b.to)); }
+
+  c.strokeStyle = css('--line'); c.fillStyle = css('--muted'); c.lineWidth = 1; c.font = '11px Segoe UI, system-ui';
+  for (let k = 0; k <= 4; k++) {
+    const v = ymin + (ymax - ymin) * k / 4, yy = Y(v);
+    c.beginPath(); c.moveTo(pad.l, yy); c.lineTo(w - pad.r, yy); c.stroke();
+    c.fillText(v.toFixed(opts.dec || 0), 4, yy + 4);
+  }
+  if (opts.zero && ymin < 0 && ymax > 0) { c.strokeStyle = '#4b5d82'; c.beginPath(); c.moveTo(pad.l, Y(0)); c.lineTo(w - pad.r, Y(0)); c.stroke(); }
+
+  for (const s of series) {
+    const d = s.data; if (!d.length) continue;
+    const off = MAX_POINTS - d.length;
+    c.strokeStyle = s.color; c.lineWidth = 2; c.lineJoin = 'round'; c.beginPath();
+    let started = false;
+    d.forEach((v, i) => {
+      if (!Number.isFinite(v)) { started = false; return; }
+      const xx = X(off + i), yy = Y(v);
+      if (!started) { c.moveTo(xx, yy); started = true; } else c.lineTo(xx, yy);
+    });
+    c.stroke();
+  }
+  // Time span actually on screen (ESP32 = 1 reading/s, server = its own rate).
+  const spanMin = hist.length > 1 ? (hist[hist.length - 1].t - hist[0].t) / 60000 : 0;
+  c.fillStyle = css('--muted');
+  c.textAlign = 'left';  c.fillText(spanMin ? `−${spanMin.toFixed(1)} min` : '', pad.l, h - 4);
+  c.textAlign = 'right'; c.fillText('now', w - pad.r, h - 4);
+  c.textAlign = 'left';
+}
+
+function drawAll(){
+  drawChart($('c1'), [
+    { data: hist.map(p => Math.min(110, p.level_pct)), color: css('--water') },
+    { data: hist.map(p => p.score), color: '#ffffff' }
+  ], { min:0, max:100, bands:[
+    { from:0,  to:25,  color:'rgba(34,197,94,.07)' },
+    { from:25, to:50,  color:'rgba(234,179,8,.07)' },
+    { from:50, to:75,  color:'rgba(249,115,22,.08)' },
+    { from:75, to:100, color:'rgba(239,68,68,.10)' } ]});
+
+  drawChart($('c2'), [
+    { data: hist.map(p => p.rise), color: css('--high') },
+    { data: hist.map(p => p.rain_pct / 10), color: css('--rain') }
+  ], { min:0, max:10, auto:true, dec:1, zero:true });
+}
+
+window.addEventListener('resize', drawAll);
+drawAll();
+if (mode === 'server' || host) start();
+</script>
+</body>
+</html>

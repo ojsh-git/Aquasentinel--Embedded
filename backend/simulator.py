@@ -53,6 +53,11 @@ import random
 
 URL = "http://127.0.0.1:5001/api/reading"
 
+# Seconds between readings. rise_rate is always sent in % per MINUTE,
+# because the risk engine, the 5-minute prediction and the ML model all
+# assume per-minute units. A full scenario (15% -> 98%) takes ~10 minutes.
+INTERVAL_S = 2
+
 level = 15.0
 previous = level
 
@@ -63,11 +68,11 @@ try:
     while True:
 
         # Simulate increasing water level
-        increase = random.uniform(0.5, 2.5)
+        increase = random.uniform(0.05, 0.25)   # % per reading
         level = min(98, level + increase)
 
         # Calculate rate of rise
-        rise_rate = level - previous
+        rise_rate = (level - previous) * 60 / INTERVAL_S   # % per minute
         previous = level
 
         # Simulate rain
@@ -85,7 +90,9 @@ try:
             "rise_rate": round(rise_rate, 2),
             "rain": rain,
             "temperature": round(temperature, 1),
-            "humidity": round(humidity, 1)
+            "humidity": round(humidity, 1),
+            # Always label generated data so the dashboard can show it.
+            "source": "SIMULATED"
         }
 
         try:
@@ -122,7 +129,7 @@ try:
             level = 10
             previous = level
 
-        time.sleep(2)
+        time.sleep(INTERVAL_S)
 
 except KeyboardInterrupt:
     print("\nSimulator stopped.")

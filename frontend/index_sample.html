@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>AquaSentinel | Flood Intelligence</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- Ambient background -->
+
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+  <div class="grid-background"></div>
+
+  <div class="app-shell">
+
+
+<!-- ================= TOP BAR ================= -->
+<header class="topbar">
+
+  <div class="brand-area">
+    <div class="brand-mark">
+      <span class="wave wave-1"></span>
+      <span class="wave wave-2"></span>
+      <span class="wave wave-3"></span>
+    </div>
+
+    <div>
+      <div class="brand">
+        AQUA<span>SENTINEL</span>
+      </div>
+      <div class="subtitle">
+        IoT FLOOD INTELLIGENCE PLATFORM
+      </div>
+    </div>
+  </div>
+
+  <div class="connection">
+    <span id="connectionDot" class="dot offline"></span>
+
+    <div>
+      <strong id="connectionText">Connecting...</strong>
+      <small>Sensor network</small>
+    </div>
+  </div>
+
+</header>
+
+
+<main>
+
+  <!-- ================= HERO ================= -->
+  <section class="hero">
+
+    <div class="hero-content">
+
+      <div class="eyebrow">
+        <span class="pulse-line"></span>
+        REAL-TIME ENVIRONMENTAL INTELLIGENCE
+      </div>
+
+      <h1>
+        Sense.
+        <span>Predict.</span>
+        Decide.
+        Act.
+      </h1>
+
+      <p class="hero-text">
+        AquaSentinel combines water-level sensing, rainfall,
+        environmental conditions and trend analysis into one
+        intelligent flood-risk decision system.
+      </p>
+
+      <div class="hero-tags">
+        <span>ESP32 NODE</span>
+        <span>LIVE ANALYSIS</span>
+        <span>EARLY WARNING</span>
+      </div>
+
+    </div>
+
+
+    <!-- ================= RISK ================= -->
+    <div class="risk-card" id="riskCard">
+
+      <div class="risk-card-header">
+        <span class="risk-label">CURRENT RISK</span>
+        <span class="live-indicator">
+          <i></i> LIVE
+        </span>
+      </div>
+
+      <div class="risk-ring">
+
+        <div class="ring-glow"></div>
+
+        <div class="risk-inner">
+          <div class="risk-score" id="riskScore">--</div>
+          <div class="risk-out-of">/ 100</div>
+        </div>
+
+      </div>
+
+      <div class="risk-level" id="riskLevel">
+        WAITING
+      </div>
+
+      <div class="risk-description" id="riskDescription">
+        Awaiting sensor data
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- ================= SENSOR CARDS ================= -->
+  <section class="cards">
+
+    <div class="card metric water-card">
+
+      <div class="metric-top">
+        <div class="metric-icon water-icon">≈</div>
+        <span class="metric-status">LIVE</span>
+      </div>
+
+      <span class="metric-title">Water Level</span>
+
+      <strong id="waterLevel">--%</strong>
+
+      <div class="metric-bottom">
+        <span id="riseRate">Rise: -- cm/min</span>
+        <span>LEVEL</span>
+      </div>
+
+      <div class="mini-progress">
+        <div id="waterProgress"></div>
+      </div>
+
+    </div>
+
+
+    <div class="card metric rain-card">
+
+      <div class="metric-top">
+        <div class="metric-icon rain-icon">⌁</div>
+        <span class="metric-status">SENSOR</span>
+      </div>
+
+      <span class="metric-title">Rainfall</span>
+
+      <strong id="rain">--</strong>
+
+      <div class="metric-bottom">
+        <span id="rainDetail">Waiting</span>
+        <span>PRECIPITATION</span>
+      </div>
+
+    </div>
+
+
+    <div class="card metric">
+
+      <div class="metric-top">
+        <div class="metric-icon temp-icon">°</div>
+        <span class="metric-status">ENV</span>
+      </div>
+
+      <span class="metric-title">Temperature</span>
+
+      <strong id="temperature">--°C</strong>
+
+      <div class="metric-bottom">
+        <span>Ambient condition</span>
+        <span>TEMP</span>
+      </div>
+
+    </div>
+
+
+    <div class="card metric">
+
+      <div class="metric-top">
+        <div class="metric-icon humidity-icon">◌</div>
+        <span class="metric-status">ENV</span>
+      </div>
+
+      <span class="metric-title">Humidity</span>
+
+      <strong id="humidity">--%</strong>
+
+      <div class="metric-bottom">
+        <span>Ambient condition</span>
+        <span>RH</span>
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- ================= ALERT ================= -->
+  <div class="alert-banner" id="alertBanner">
+
+    <div class="alert-icon">!</div>
+
+    <div>
+      <strong id="alertTitle">SYSTEM INITIALIZING</strong>
+      <p id="alertText">
+        Waiting for the latest environmental reading.
+      </p>
+    </div>
+
+    <div class="alert-arrow">→</div>
+
+  </div>
+
+
+  <!-- ================= CHART + PREDICTION ================= -->
+  <section class="grid-two">
+
+    <div class="card chart-card">
+
+      <div class="section-head">
+
+        <div>
+          <div class="section-kicker">HISTORICAL SIGNAL</div>
+          <h2>Water-Level History</h2>
+          <p>Recent sensor readings from the monitoring node</p>
+        </div>
+
+        <div class="chart-live">
+          <span></span>
+          LIVE DATA
+        </div>
+
+      </div>
+
+      <div class="chart-wrapper">
+        <canvas id="levelChart" width="700" height="300"></canvas>
+      </div>
+
+    </div>
+
+
+    <div class="card prediction-card">
+
+      <div class="section-kicker">PREDICTIVE ANALYSIS</div>
+
+      <h2>Prediction Engine</h2>
+
+      <p>
+        Near-term projection based on current water level
+        and observed rise rate.
+      </p>
+
+      <div class="prediction-main">
+
+        <div>
+          <span class="prediction-label">
+            PROJECTED LEVEL
+          </span>
+
+          <div class="prediction-number" id="predictedLevel">
+            --%
+          </div>
+
+          <span class="prediction-caption">
+            in approximately 5 minutes
+          </span>
+        </div>
+
+        <div class="prediction-arrow">
+          ↗
+        </div>
+
+      </div>
+
+
+      <div class="ml-box">
+
+        <div>
+          <span>HIGH-RISK PROBABILITY</span>
+          <small>Custom ML analysis</small>
+        </div>
+
+        <strong id="mlProbability">--%</strong>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- ================= ACTION + RISK ENGINE ================= -->
+  <section class="grid-two">
+
+    <div class="card action-card">
+
+      <div class="section-kicker">AUTOMATED RESPONSE</div>
+      <h2>Decision & Action</h2>
+
+      <div class="action-row">
+        <div class="action-label">
+          <span class="action-dot"></span>
+          Recommended response
+        </div>
+
+        <strong id="recommendation">
+          Waiting for data
+        </strong>
+      </div>
+
+
+      <div class="action-row">
+
+        <div class="action-label">
+          <span class="action-dot"></span>
+          Drainage gate
+        </div>
+
+        <strong id="gateStatus">--</strong>
+
+      </div>
+
+
+      <div class="action-row">
+
+        <div class="action-label">
+          <span class="action-dot"></span>
+          Last update
+        </div>
+
+        <strong id="lastUpdate">--</strong>
+
+      </div>
+
+    </div>
+
+
+    <div class="card score-card">
+
+      <div class="section-kicker">DECISION MODEL</div>
+      <h2>Risk Engine</h2>
+
+      <div class="score-display">
+
+        <div class="score-number">
+          <span id="scoreMini">--</span>
+          <small>/100</small>
+        </div>
+
+        <span id="scoreStatus">WAITING</span>
+
+      </div>
+
+
+      <div class="bar">
+        <div id="scoreBar"></div>
+      </div>
+
+
+      <div class="risk-scale">
+
+        <div>
+          <span class="scale-dot low"></span>
+          <span>LOW</span>
+          <small>0–24</small>
+        </div>
+
+        <div>
+          <span class="scale-dot moderate"></span>
+          <span>MODERATE</span>
+          <small>25–49</small>
+        </div>
+
+        <div>
+          <span class="scale-dot high"></span>
+          <span>HIGH</span>
+          <small>50–74</small>
+        </div>
+
+        <div>
+          <span class="scale-dot critical"></span>
+          <span>CRITICAL</span>
+          <small>75–100</small>
+        </div>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- ================= SYSTEM PIPELINE ================= -->
+  <section class="pipeline card">
+
+    <div class="section-kicker">AQUASENTINEL CORE</div>
+
+    <h2>Sense → Understand → Predict → Decide → Act</h2>
+
+    <div class="pipeline-track">
+
+      <div class="pipeline-step active">
+        <span>01</span>
+        <strong>SENSE</strong>
+        <small>Water + Rain</small>
+      </div>
+
+      <div class="pipeline-line"></div>
+
+      <div class="pipeline-step active">
+        <span>02</span>
+        <strong>UNDERSTAND</strong>
+        <small>Trend Analysis</small>
+      </div>
+
+      <div class="pipeline-line"></div>
+
+      <div class="pipeline-step active">
+        <span>03</span>
+        <strong>PREDICT</strong>
+        <small>Risk Forecast</small>
+      </div>
+
+      <div class="pipeline-line"></div>
+
+      <div class="pipeline-step active">
+        <span>04</span>
+        <strong>DECIDE</strong>
+        <small>Risk Classification</small>
+      </div>
+
+      <div class="pipeline-line"></div>
+
+      <div class="pipeline-step active">
+        <span>05</span>
+        <strong>ACT</strong>
+        <small>Alert + Gate</small>
+      </div>
+
+    </div>
+
+  </section>
+
+</main>
+
+
+<!-- ================= FOOTER ================= -->
+<footer>
+
+  <div class="footer-brand">
+    <span>AQUA</span>SENTINEL
+  </div>
+
+  <span>PHASE 1 SOFTWARE PROTOTYPE</span>
+
+  <span>EMBEDDED • IoT • PREDICTIVE ANALYTICS</span>
+
+</footer>
+
+
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="script.js"></script>
+
+<!-- AquaSentinel custom cursor -->
+<div class="cursor-glow"></div>
+<div class="cursor-ring"></div>
+
+</body>
+</html>
