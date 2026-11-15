@@ -333,6 +333,6 @@ if __name__ == "__main__":
     print("AquaSentinel API running at http://127.0.0.1:5001")
     print("Advisor wording:", "AI (" + ADVISOR.model + ")" if ADVISOR.enabled
           else "template only (" + ADVISOR.reason_off + ")")
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    app.run(host="0.0.0.0", port=5001, debug=False)
 else:
     init_db()
