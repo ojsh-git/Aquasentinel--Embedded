@@ -1,0 +1,11 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+.vscode/
+.idea/
+data/*.db
+data/*.jsonl
+ml/model_weights.json
