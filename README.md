@@ -202,8 +202,8 @@ AquaSentinel is a team project built by:
 | Name | GitHub | Role |
 |------|--------|------|
 | Ojas Sharma | [@ojsh-git](https://github.com/ojsh-git) | [your role] |
-| Toshi Singh | [@username](https://github.com/username) | [role] |
-| R Kanish | [@username](https://github.com/username) | [role] |
+| Toshi Singh | — | [role] |
+| R Kanish | — | [role] |
 
 ## License and Copyright
 
