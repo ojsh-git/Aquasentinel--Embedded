@@ -162,11 +162,11 @@ The ESP32 sends the same JSON structure to:
 
 See `backend/esp32_payload_example.json` for an example. The backend and dashboard need no changes when the real hardware replaces the simulator.
 
-<!-- Add a dashboard screenshot at screenshots/dashboard.png, then delete this line and the closing marker below, and remove nothing else:
+
 ## Screenshots
 
 ![Dashboard](screenshots/dashboard.png)
--->
+
 
 ## Security
 
