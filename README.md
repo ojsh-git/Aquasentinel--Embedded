@@ -1,20 +1,21 @@
 # 🌊 AquaSentinel
 
-**AquaSentinel** is an IoT flood-monitoring system. An ESP32 sensor node sends water level, rainfall, temperature and humidity readings to a Flask backend. The backend calculates a flood risk score, predicts the near-future water level with a small neural network, and shows everything on a live dashboard along with safety advice.
+**AquaSentinel** is an IoT flood-monitoring system. An ESP32 sensor node sends water level and rainfall readings to a Flask backend. The backend calculates a flood risk score, forecasts the water level 5 minutes ahead, estimates the probability of high flood risk with a small neural network, and shows everything on a live dashboard along with safety advice.
 
-Until the hardware is connected, a built-in **simulator** replaces the ESP32, so the whole system can be tested end to end.
+When the hardware is not connected, a built-in **simulator** replaces the ESP32, so the whole system can be tested end to end.
 
 ## Features
 
-- Live monitoring of water level, rise rate, rainfall, temperature and humidity
+- Live monitoring of water level, rise rate and rainfall (the API also accepts temperature and humidity)
 - **Risk score (0–100)** with LOW / MODERATE / HIGH / CRITICAL levels
-- **5-minute water-level prediction** from a small neural network trained on generated flood-like data
+- **5-minute water-level forecast** based on the current rise rate
+- **High-risk probability** from a small neural network trained on generated flood-like data
 - **Advisor** that gives safety precautions for each risk level, with optional AI-written wording using Claude
 - **Sensor health checks** to catch faulty or out-of-range readings
 - SQLite storage of all historical readings
 - REST API and live web dashboard
 - Scenario-based simulator for testing without hardware
-- ESP32-ready HTTP endpoint
+- ESP32 firmware that sends readings to the server over HTTP
 
 ## Architecture
 
@@ -25,7 +26,8 @@ ESP32 sensors (or simulator)
    Flask REST API ──► SQLite database
         │
         ├──► Risk engine (rule-based score)
-        ├──► Neural-network model (5-minute prediction)
+        ├──► 5-minute water-level forecast
+        ├──► Neural-network model (high-risk probability)
         ├──► Sensor health checks
         └──► Advisor (templates + optional Claude wording)
         │
@@ -39,7 +41,7 @@ ESP32 sensors (or simulator)
 - **Database:** SQLite
 - **Machine learning:** Small neural network built with NumPy
 - **Frontend:** HTML, CSS, JavaScript
-- **Hardware:** ESP32 with water level, rain, temperature and humidity sensors
+- **Hardware:** ESP32 with an ultrasonic water-level sensor and a rain sensor (temperature and humidity sensors planned)
 - **AI advisor (optional):** Claude via the Anthropic API
 
 ## Project Structure
@@ -61,6 +63,7 @@ Aquasentinel--Embedded/
 │   └── aquasentinel.sql         # Database schema
 ├── ml/                          # Model training and prediction
 ├── frontend/                    # Live dashboard
+├── screenshots/                 # Dashboard screenshots
 ├── tests/                       # Tests
 ├── LICENSE
 └── requirements.txt
@@ -103,7 +106,7 @@ source venv/bin/activate
 python backend/simulator.py
 ```
 
-The simulator sends changing readings to the same API the ESP32 will use, so the dashboard fills with live data.
+The simulator sends changing readings to the same API the ESP32 uses, so the dashboard fills with live data.
 
 ### 4. Train the model (optional)
 
@@ -139,7 +142,7 @@ Never commit your API key to the repository.
 | GET | `/api/history?limit=50` | Recent historical readings |
 | GET | `/api/snapshot?minutes=5` | Summary of the recent time window |
 | GET | `/api/advisory` | Current safety advice |
-| GET | `/api/predict` | 5-minute water-level prediction |
+| GET | `/api/predict` | 5-minute water-level forecast and high-risk probability |
 | GET | `/api/health` | Server health check |
 
 Example request body for `POST /api/reading`:
@@ -156,17 +159,20 @@ Example request body for `POST /api/reading`:
 
 ## Hardware Integration
 
-The ESP32 sends the same JSON structure to:
+The ESP32 firmware (`backend/esp32.ino`) sends the same JSON structure to:
 
 `http://<server-ip>:5001/api/reading`
 
 See `backend/esp32_payload_example.json` for an example. The backend and dashboard need no changes when the real hardware replaces the simulator.
 
-
 ## Screenshots
 
-![Dashboard](screenshots/dashboard.png)
-
+![Dashboard 1](screenshots/dashboard-1.png)
+![Dashboard 2](screenshots/dashboard-2.png)
+![Dashboard 3](screenshots/dashboard-3.png)
+![Dashboard 4](screenshots/dashboard-4.png)
+![Dashboard 5](screenshots/dashboard-5.png)
+![Dashboard 6](screenshots/dashboard-6.png)
 
 ## Security
 
@@ -188,7 +194,7 @@ See `backend/esp32_payload_example.json` for an example. The backend and dashboa
 
 ## Future Improvements
 
-- Connect the real ESP32 hardware
+- Record and evaluate real tank runs
 - Send SMS or app alerts when risk reaches HIGH or CRITICAL
 - Train the model on real sensor data
 - Deploy to a cloud server
